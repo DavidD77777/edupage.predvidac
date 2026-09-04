@@ -1,13 +1,11 @@
 import streamlit as st
 from edupage_api import Edupage
 
-# Nastavení vzhledu aplikace
 st.set_page_config(page_title="EduPage Předvídač", layout="centered")
 
 st.title("🎓 Předvídač známek pro EduPage")
 st.write("Funguje stejně jako v Bakalářích – zadej fiktivní známku a zjisti svůj nový průměr!")
 
-# Paměť aplikace - aby si pamatovala, že jsme přihlášení a máme stažené známky
 if 'grades' not in st.session_state:
     st.session_state.grades = None
 
@@ -17,7 +15,7 @@ if st.session_state.grades is None:
     
     skola = st.text_input("Název školy (např. zsmasarykova - bez .edupage.org)")
     jmeno = st.text_input("Přihlašovací jméno")
-    heslo = st.text_input("Heslo", type="password") # Skryje heslo hvězdičkami
+    heslo = st.text_input("Heslo", type="password")
 
     if st.button("Přihlásit a načíst známky"):
         if skola and jmeno and heslo:
@@ -26,8 +24,25 @@ if st.session_state.grades is None:
                     edupage = Edupage()
                     edupage.login(jmeno, heslo, skola)
                     st.session_state.grades = edupage.get_grades()
+
+                    if not st.session_state.grades:
+                        class TestZnamka:
+                            def __init__(self, subject, value, weight, comment):
+                                self.subject = subject
+                                self.value = value
+                                self.weight = weight
+                                self.comment = comment
+
+                        st.session_state.grades = [
+                            TestZnamka("Matematika", "1", 3.00, "Čtvrtletní práce"),
+                            TestZnamka("Matematika", "2", 0.50, "Domačka"),
+                            TestZnamka("Anglický jazyk", "1", 1.00, "Slovíčka"),
+                            TestZnamka("Fyzika", "3", 2.00, "Laboratorní práce")
+                        ]
+
                     st.success("Úspěšně načteno!")
-                    st.rerun() # Obnoví stránku do zobrazení známek
+                    st.rerun()
+
                 except Exception as e:
                     st.error(f"❌ Přihlášení selhalo! Detail chyby: {e}")
         else:
@@ -39,25 +54,21 @@ else:
         st.session_state.grades = None
         st.rerun()
 
-    # Roztřídění stažených známek do jednotlivých předmětů
     predmety = {}
     for g in st.session_state.grades:
-        # 1. Ošetření váhy
-        vaha = getattr(g, "weight", 1)
+        vaha = getattr(g, "weight", 1.0)
         if vaha is None: 
-            vaha = 1
+            vaha = 1.0
 
-        # 2. Úprava známky na číslo (ošetření znamének + a -)
         val_str = str(getattr(g, "value", "")).strip()
         val_str = val_str.replace("-", ".5").replace("+", ".25")
         
         try:
             hodnota = float(val_str)
-            vaha = int(vaha)
+            vaha = float(vaha)
         except ValueError:
-            continue  # Přeskočí nečíselné známky (např. "N", "Uvolněn")
+            continue
 
-        # 3. Získání názvu předmětu
         subject_obj = getattr(g, "subject", None)
         if hasattr(subject_obj, "name"):
             nazev = subject_obj.name
@@ -75,17 +86,14 @@ else:
             "popis": getattr(g, "comment", "")
         })
 
-    # Kontrola, zda máme nějaké platné předměty
     if not predmety:
         st.warning("⚠️ Nebyly nalezeny žádné číselné známky pro výpočet průměru.")
     else:
-        # Výběrové menu pro předměty
         vybrany_predmet = st.selectbox("Vyberte předmět:", list(predmety.keys()))
 
         if vybrany_predmet:
             znamky_predmetu = predmety[vybrany_predmet]
 
-            # Výpočet aktuálního průměru
             suma_vazenych = sum(z["hodnota"] * z["vaha"] for z in znamky_predmetu)
             suma_vah = sum(z["vaha"] for z in znamky_predmetu)
 
@@ -93,30 +101,30 @@ else:
 
             st.write(f"### Aktuální průměr: **{aktualni_prumer:.2f}**")
 
-            # Výpis aktuálních známek
             with st.expander("Zobrazit mé současné známky z tohoto předmětu"):
                 for z in znamky_predmetu:
                     st.write(f"• Známka: **{z['hodnota']}** (Váha: {z['vaha']}) - {z['popis']}")
 
             st.divider()
 
-            # --- SIMULACE (CO KDYBY...) ---
             st.write("### 🔮 Co by bylo, kdyby...")
 
             sloupec1, sloupec2 = st.columns(2)
             with sloupec1:
                 nova_znamka = st.number_input("Jakou známku dostaneš?", min_value=1.0, max_value=5.0, value=1.0, step=0.5)
             with sloupec2:
-                nova_vaha = st.number_input("S jakou váhou?", min_value=1, max_value=100, value=10)
+                nova_vaha = st.selectbox(
+                    "S jakou váhou?", 
+                    options=[0.25, 0.50, 1.00, 2.00, 3.00], 
+                    index=2
+                )
 
-            # Přepočítání průměru
             nova_suma_vazenych = suma_vazenych + (nova_znamka * nova_vaha)
             nova_suma_vah = suma_vah + nova_vaha
             novy_prumer = nova_suma_vazenych / nova_suma_vah if nova_suma_vah > 0 else 0
 
             st.info(f"### Tvůj odhadovaný průměr bude: **{novy_prumer:.2f}**")
 
-            # Vyhodnocení zlepšení/zhoršení
             rozdil = novy_prumer - aktualni_prumer
             if rozdil < 0:
                 st.success(f"📈 Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
