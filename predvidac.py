@@ -94,7 +94,7 @@ else:
 
             st.divider()
 
-            st.write("### Nový průměr)
+            st.write("### Nový průměr")
 
             sloupec1, sloupec2 = st.columns(2)
             with sloupec1:
