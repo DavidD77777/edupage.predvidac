@@ -3,8 +3,7 @@ from edupage_api import Edupage
 
 st.set_page_config(page_title="EduPage Předvídač", layout="centered")
 
-st.title("🎓 Předvídač známek pro EduPage")
-st.write("Funguje stejně jako v Bakalářích – zadej fiktivní známku a zjisti svůj nový průměr!")
+st.title("Předvídač známek")
 
 if 'grades' not in st.session_state:
     st.session_state.grades = None
@@ -26,22 +25,10 @@ if st.session_state.grades is None:
                     st.session_state.grades = edupage.get_grades()
 
                     if not st.session_state.grades:
-                        class TestZnamka:
-                            def __init__(self, subject, value, weight, comment):
-                                self.subject = subject
-                                self.value = value
-                                self.weight = weight
-                                self.comment = comment
-
-                        st.session_state.grades = [
-                            TestZnamka("Matematika", "1", 3.00, "Čtvrtletní práce"),
-                            TestZnamka("Matematika", "2", 0.50, "Domačka"),
-                            TestZnamka("Anglický jazyk", "1", 1.00, "Slovíčka"),
-                            TestZnamka("Fyzika", "3", 2.00, "Laboratorní práce")
-                        ]
-
-                    st.success("Úspěšně načteno!")
-                    st.rerun()
+                        st.warning("Přihlášení proběhlo, ale EduPage nevrátil žádné známky.")
+                    else:
+                        st.success("Úspěšně načteno!")
+                        st.rerun()
 
                 except Exception as e:
                     st.error(f"❌ Přihlášení selhalo! Detail chyby: {e}")
@@ -107,7 +94,7 @@ else:
 
             st.divider()
 
-            st.write("### 🔮 Co by bylo, kdyby...")
+            st.write("### Nový průměr)
 
             sloupec1, sloupec2 = st.columns(2)
             with sloupec1:
@@ -127,8 +114,8 @@ else:
 
             rozdil = novy_prumer - aktualni_prumer
             if rozdil < 0:
-                st.success(f"📈 Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
+                st.success(f" Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
             elif rozdil > 0:
-                st.error(f"📉 Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
+                st.error(f" Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
             else:
                 st.warning("Průměr zůstane stejný.")
