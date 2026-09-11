@@ -3,15 +3,14 @@ from edupage_api import Edupage
 
 st.set_page_config(page_title="EduPage Předvídač", layout="centered")
 
-st.title("Předvídač známek")
+st.title("🎓 Předvídač známek pro EduPage")
+st.write("Zadej své přihlašovací údaje a spočítej si průměr.")
 
 if 'grades' not in st.session_state:
     st.session_state.grades = None
 
 # --- 1. PŘIHLAŠOVACÍ OBRAZOVKA ---
 if st.session_state.grades is None:
-    st.subheader("Přihlášení do EduPage")
-    
     skola = st.text_input("Název školy (např. zsmasarykova - bez .edupage.org)")
     jmeno = st.text_input("Přihlašovací jméno")
     heslo = st.text_input("Heslo", type="password")
@@ -94,7 +93,7 @@ else:
 
             st.divider()
 
-            st.write("### Nový průměr")
+            st.write("### 🔮 Co by bylo, kdyby...")
 
             sloupec1, sloupec2 = st.columns(2)
             with sloupec1:
@@ -114,8 +113,8 @@ else:
 
             rozdil = novy_prumer - aktualni_prumer
             if rozdil < 0:
-                st.success(f" Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
+                st.success(f"📈 Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
             elif rozdil > 0:
-                st.error(f" Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
+                st.error(f"📉 Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
             else:
                 st.warning("Průměr zůstane stejný.")
