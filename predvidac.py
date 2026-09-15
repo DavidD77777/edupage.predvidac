@@ -4,7 +4,7 @@ from edupage_api import Edupage
 
 st.set_page_config(page_title="EduPage Předvídač", layout="centered")
 
-st.title("🎓 Předvídač známek pro EduPage")
+st.title("Předvídač známek pro EduPage")
 st.write("Zadej své přihlašovací údaje a spočítej si průměr.")
 
 if 'grades' not in st.session_state:
@@ -116,7 +116,7 @@ else:
                     st.write(f"• Známka: **{z['hodnota']}** (Váha: {z['vaha']}) - {z['popis']}")
 
             st.divider()
-            st.write("### 🔮 Co by bylo, kdyby...")
+            st.write("### Předvídač")
 
             sloupec1, sloupec2 = st.columns(2)
             with sloupec1:
