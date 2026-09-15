@@ -34,7 +34,6 @@ if st.session_state.grades is None:
                         st.rerun()
 
                 except Exception as e:
-                    # Vypíše detailní chybu do černého okna cmd
                     print("CHYBA V APLIKACI:")
                     traceback.print_exc()
                     st.error(f"❌ Chyba: {type(e).__name__} - {str(e)}")
@@ -80,7 +79,8 @@ else:
         })
 
     if not predmety:
-        st.warning("⚠️ Žádné známky ke zpracování.")
+        st.warning("⚠️ Žádné známky ke zpracování. Tady jsou surová data z EduPage:")
+        st.write(st.session_state.grades)
     else:
         vybrany_predmet = st.selectbox("Vyberte předmět:", list(predmety.keys()))
 
