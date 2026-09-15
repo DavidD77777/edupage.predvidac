@@ -24,7 +24,6 @@ if st.session_state.grades is None:
                     edupage.login(jmeno, heslo, skola)
                     raw_grades = edupage.get_grades()
                     
-                    print("DEBUG - Úspěch, staženo:", len(raw_grades) if raw_grades else "Žádná data")
                     st.session_state.grades = raw_grades
 
                     if not st.session_state.grades:
@@ -48,26 +47,44 @@ else:
 
     predmety = {}
     for g in st.session_state.grades:
-        vaha = getattr(g, "weight", 1.0)
+        # Váha se v EduPage API jmenuje 'importance' (příp. 'weight')
+        vaha = getattr(g, "importance", None)
+        if vaha is None:
+            vaha = getattr(g, "weight", 1.0)
         if vaha is None: 
             vaha = 1.0
 
-        val_str = str(getattr(g, "value", "")).strip()
-        val_str = val_str.replace("-", ".5").replace("+", ".25")
+        # Číselná známka je v 'grade_n'
+        hodnota = getattr(g, "grade_n", None)
         
+        # Pojistka kdyby byla hodnota jinde (např. v 'value')
+        if hodnota is None:
+            val_str = str(getattr(g, "value", "")).strip()
+            val_str = val_str.replace("-", ".5").replace("+", ".25")
+            try:
+                hodnota = float(val_str)
+            except ValueError:
+                continue
+
+        if hodnota is None:
+            continue
+
         try:
-            hodnota = float(val_str)
+            hodnota = float(hodnota)
             vaha = float(vaha)
         except ValueError:
             continue
 
-        subject_obj = getattr(g, "subject", None)
-        if hasattr(subject_obj, "name"):
-            nazev = subject_obj.name
-        elif subject_obj:
-            nazev = str(subject_obj)
-        else:
-            nazev = "Neznámý předmět"
+        # Název předmětu je přímo v 'subject_name'
+        nazev = getattr(g, "subject_name", None)
+        if not nazev:
+            subject_obj = getattr(g, "subject", None)
+            if hasattr(subject_obj, "name"):
+                nazev = subject_obj.name
+            elif subject_obj:
+                nazev = str(subject_obj)
+            else:
+                nazev = "Neznámý předmět"
 
         if nazev not in predmety:
             predmety[nazev] = []
@@ -75,7 +92,7 @@ else:
         predmety[nazev].append({
             "hodnota": hodnota,
             "vaha": vaha,
-            "popis": getattr(g, "comment", "")
+            "popis": getattr(g, "comment", "") or getattr(g, "title", "Bez popisu")
         })
 
     if not predmety:
@@ -112,3 +129,11 @@ else:
             novy_prumer = nova_suma_vazenych / nova_suma_vah if nova_suma_vah > 0 else 0
 
             st.info(f"### Tvůj odhadovaný průměr bude: **{novy_prumer:.2f}**")
+
+            rozdil = novy_prumer - aktualni_prumer
+            if rozdil < 0:
+                st.success(f"📈 Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
+            elif rozdil > 0:
+                st.error(f"📉 Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
+            else:
+                st.warning("Průměr zůstane stejný.")
