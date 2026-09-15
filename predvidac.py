@@ -21,7 +21,13 @@ if st.session_state.grades is None:
                 try:
                     edupage = Edupage()
                     edupage.login(jmeno, heslo, skola)
-                    st.session_state.grades = edupage.get_grades()
+                    raw_grades = edupage.get_grades()
+                    
+                    # Debug výpis do terminálu, abys viděl, co přesně API vrátilo
+                    print("DEBUG - Načteno známek z API:", len(raw_grades) if raw_grades else 0)
+                    print("DEBUG - Obsah:", raw_grades)
+
+                    st.session_state.grades = raw_grades
 
                     if not st.session_state.grades:
                         st.warning("Přihlášení proběhlo, ale EduPage nevrátil žádné známky.")
@@ -40,81 +46,90 @@ else:
         st.session_state.grades = None
         st.rerun()
 
-    predmety = {}
-    for g in st.session_state.grades:
-        vaha = getattr(g, "weight", 1.0)
-        if vaha is None: 
-            vaha = 1.0
-
-        val_str = str(getattr(g, "value", "")).strip()
-        val_str = val_str.replace("-", ".5").replace("+", ".25")
-        
-        try:
-            hodnota = float(val_str)
-            vaha = float(vaha)
-        except ValueError:
-            continue
-
-        subject_obj = getattr(g, "subject", None)
-        if hasattr(subject_obj, "name"):
-            nazev = subject_obj.name
-        elif subject_obj:
-            nazev = str(subject_obj)
-        else:
-            nazev = "Neznámý předmět"
-
-        if nazev not in predmety:
-            predmety[nazev] = []
-
-        predmety[nazev].append({
-            "hodnota": hodnota,
-            "vaha": vaha,
-            "popis": getattr(g, "comment", "")
-        })
-
-    if not predmety:
-        st.warning("⚠️ Nebyly nalezeny žádné číselné známky pro výpočet průměru.")
+    # Kontrola, co vlastně v session_state máme
+    if not st.session_state.grades:
+        st.warning("⚠️ Seznam známek je prázdný.")
+        if st.button("Zkusit načíst znovu"):
+            st.session_state.grades = None
+            st.rerun()
     else:
-        vybrany_predmet = st.selectbox("Vyberte předmět:", list(predmety.keys()))
+        predmety = {}
+        for g in st.session_state.grades:
+            vaha = getattr(g, "weight", 1.0)
+            if vaha is None: 
+                vaha = 1.0
 
-        if vybrany_predmet:
-            znamky_predmetu = predmety[vybrany_predmet]
+            val_str = str(getattr(g, "value", "")).strip()
+            val_str = val_str.replace("-", ".5").replace("+", ".25")
+            
+            try:
+                hodnota = float(val_str)
+                vaha = float(vaha)
+            except ValueError:
+                continue
 
-            suma_vazenych = sum(z["hodnota"] * z["vaha"] for z in znamky_predmetu)
-            suma_vah = sum(z["vaha"] for z in znamky_predmetu)
-
-            aktualni_prumer = suma_vazenych / suma_vah if suma_vah > 0 else 0
-
-            st.write(f"### Aktuální průměr: **{aktualni_prumer:.2f}**")
-
-            with st.expander("Zobrazit mé současné známky z tohoto předmětu"):
-                for z in znamky_predmetu:
-                    st.write(f"• Známka: **{z['hodnota']}** (Váha: {z['vaha']}) - {z['popis']}")
-
-            st.divider()
-
-            st.write("### 🔮 Co by bylo, kdyby...")
-
-            sloupec1, sloupec2 = st.columns(2)
-            with sloupec1:
-                nova_znamka = st.number_input("Jakou známku dostaneš?", min_value=1.0, max_value=5.0, value=1.0, step=0.5)
-            with sloupec2:
-                nova_vaha = st.selectbox(
-                    "S jakou váhou?", 
-                    options=[0.25, 0.50, 1.00, 2.00, 3.00], 
-                    index=2
-                )
-
-            nova_suma_vazenych = suma_vazenych + (nova_znamka * nova_vaha)
-            nova_suma_vah = suma_vah + nova_vaha
-            novy_prumer = nova_suma_vazenych / nova_suma_vah if nova_suma_vah > 0 else 0
-
-            st.info(f"### Tvůj odhadovaný průměr bude: **{novy_prumer:.2f}**")
-
-            rozdil = novy_prumer - aktualni_prumer
-            if rozdil < 0:
-                st.success(f"📈 Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
-            elif rozdil > 0:
-                st.error(f"📉 Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
+            subject_obj = getattr(g, "subject", None)
+            if hasattr(subject_obj, "name"):
+                nazev = subject_obj.name
+            elif subject_obj:
+                nazev = str(subject_obj)
             else:
-                st.warning("Průměr zůstane stejný.")
+                nazev = "Neznámý předmět"
+
+            if nazev not in predmety:
+                predmety[nazev] = []
+
+            predmety[nazev].append({
+                "hodnota": hodnota,
+                "vaha": vaha,
+                "popis": getattr(g, "comment", "")
+            })
+
+        if not predmety:
+            st.warning("⚠️ Známky sice přišly, ale nenašly se žádné číselné hodnoty, které by šlo zpracovat.")
+            with st.expander("Zobrazit surová data (pro diagnostiku)"):
+                st.write(st.session_state.grades)
+        else:
+            vybrany_predmet = st.selectbox("Vyberte předmět:", list(predmety.keys()))
+
+            if vybrany_predmet:
+                znamky_predmetu = predmety[vybrany_predmet]
+
+                suma_vazenych = sum(z["hodnota"] * z["vaha"] for z in znamky_predmetu)
+                suma_vah = sum(z["vaha"] for z in znamky_predmetu)
+
+                aktualni_prumer = suma_vazenych / suma_vah if suma_vah > 0 else 0
+
+                st.write(f"### Aktuální průměr: **{aktualni_prumer:.2f}**")
+
+                with st.expander("Zobrazit mé současné známky z tohoto předmětu"):
+                    for z in znamky_predmetu:
+                        st.write(f"• Známka: **{z['hodnota']}** (Váha: {z['vaha']}) - {z['popis']}")
+
+                st.divider()
+
+                st.write("### 🔮 Co by bylo, kdyby...")
+
+                sloupec1, sloupec2 = st.columns(2)
+                with sloupec1:
+                    nova_znamka = st.number_input("Jakou známku dostaneš?", min_value=1.0, max_value=5.0, value=1.0, step=0.5)
+                with sloupec2:
+                    nova_vaha = st.selectbox(
+                        "S jakou váhou?", 
+                        options=[0.25, 0.50, 1.00, 2.00, 3.00], 
+                        index=2
+                    )
+
+                nova_suma_vazenych = suma_vazenych + (nova_znamka * nova_vaha)
+                nova_suma_vah = suma_vah + nova_vaha
+                novy_prumer = nova_suma_vazenych / nova_suma_vah if nova_suma_vah > 0 else 0
+
+                st.info(f"### Tvůj odhadovaný průměr bude: **{novy_prumer:.2f}**")
+
+                rozdil = novy_prumer - aktualni_prumer
+                if rozdil < 0:
+                    st.success(f"📈 Super! Průměr si zlepšíš o {abs(rozdil):.2f}.")
+                elif rozdil > 0:
+                    st.error(f"📉 Pozor. Průměr se ti zhorší o {abs(rozdil):.2f}.")
+                else:
+                    st.warning("Průměr zůstane stejný.")
